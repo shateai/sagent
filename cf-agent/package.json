@@ -1,0 +1,25 @@
+{
+  "name": "wealth-agent-cron-worker",
+  "version": "1.0.0",
+  "description": "Production-ready Autonomous AI Agent running on Cloudflare Workers with Firestore and Google Gemini",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "autonomous-agent",
+    "gemini-api",
+    "firestore",
+    "typescript"
+  ],
+  "author": "Wealth Planner AI Bot Developer Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240502.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.53.0"
+  }
+}

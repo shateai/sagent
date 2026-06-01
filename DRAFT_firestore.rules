@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && request.auth.token.email == "devonkarel@gmail.com";
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Validation Helpers ---
+
+    function isValidAgentStatus(data) {
+      return data.keys().hasAll(['status', 'capital', 'hourlyRate', 'lastWoken', 'mainStrategy', 'updatedAt'])
+        && data.keys().size() == 6
+        && data.status is string
+        && (data.status == 'sleeping' || data.status == 'planning' || data.status == 'acting')
+        && data.capital is number
+        && data.hourlyRate is number
+        && data.lastWoken is string
+        && data.mainStrategy is string
+        && data.updatedAt is string;
+    }
+
+    function isValidWealthPlan(data) {
+      return data.keys().hasAll(['createdAt', 'hourlyHour', 'topic', 'thoughtProcess', 'actionSteps', 'estimatedFeasibility', 'simulatedReturn'])
+        && data.keys().size() == 7
+        && data.createdAt is string
+        && data.hourlyHour is number
+        && data.topic is string
+        && data.topic.size() <= 200
+        && data.thoughtProcess is string
+        && data.actionSteps is list
+        && data.actionSteps.size() <= 50
+        && data.estimatedFeasibility is number
+        && data.simulatedReturn is number;
+    }
+
+    function isValidUserMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'createdAt', 'ownerId'])
+        && data.keys().size() == 4
+        && data.role is string
+        && (data.role == 'user' || data.role == 'assistant')
+        && data.content is string
+        && data.content.size() <= 10000
+        && data.createdAt is string
+        && data.ownerId is string
+        && data.ownerId.size() <= 128;
+    }
+
+    // --- Path Rules ---
+
+    // 1. Agent Status Collection (Singleton status document)
+    match /agent_status/{statusDocId} {
+      allow get: if isVerified() && isValidId(statusDocId);
+      // Writes are restricted exclusively to the Admin account running/testing or server mimicking it
+      allow create: if isAdmin() && isValidId(statusDocId) && isValidAgentStatus(incoming());
+      allow update: if isAdmin() && isValidId(statusDocId) && isValidAgentStatus(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'capital', 'hourlyRate', 'lastWoken', 'mainStrategy', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    // 2. Wealth hourly speculation logs
+    match /wealth_plans/{planId} {
+      allow get: if isVerified() && isValidId(planId);
+      allow list: if isVerified();
+      
+      allow create: if isAdmin() && isValidId(planId) && isValidWealthPlan(incoming());
+      allow update: if isAdmin() && isValidId(planId) && isValidWealthPlan(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['createdAt', 'hourlyHour', 'topic', 'thoughtProcess', 'actionSteps', 'estimatedFeasibility', 'simulatedReturn'])
+      );
+      allow delete: if false;
+    }
+
+    // 3. User consulting chat logs (strictly segmented per user)
+    match /user_messages/{messageId} {
+      allow get: if isVerified() && isValidId(messageId) && existing().ownerId == request.auth.uid;
+      allow list: if isVerified() && resource.data.ownerId == request.auth.uid;
+      
+      allow create: if isVerified() && isValidId(messageId) && incoming().ownerId == request.auth.uid && isValidUserMessage(incoming());
+      allow update, delete: if false;
+    }
+
+  }
+}

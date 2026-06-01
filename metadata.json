@@ -1,0 +1,8 @@
+{
+  "name": "Shate Agent",
+  "description": "Chytrý autonomní AI Agent, se kterým si píšete jako s ChatGPT přes Google Gemini API bez jakýchkoliv peněžních simulací.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
